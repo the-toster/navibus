@@ -6,7 +6,8 @@
     <description><![CDATA[
         <p>Navigation from a PHP class to its handler methods
         — methods marked with some attribute and accepting the class as a parameter.</p>
-        <p>Appears as a gutter icon on lines that reference or define the class.</p>
+        <p>Works both as a gutter icon and via the keyboard —
+          <b>Navigate | Related Symbol</b> (<code>Ctrl+Alt+Home</code>).</p>
         <p>Intended to be useful for various message bus implementations.</p>
         <p>The target attribute FQN is configured per project in <i>Settings | Tools | Navibus</i>.</p>
     ]]></description>

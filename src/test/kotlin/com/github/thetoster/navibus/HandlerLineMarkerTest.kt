@@ -1,6 +1,7 @@
 package com.github.thetoster.navibus
 
 import com.github.thetoster.navibus.settings.NaviBusSettings
+import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo
 import com.intellij.codeInsight.daemon.impl.DaemonCodeAnalyzerImpl
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
@@ -44,8 +45,22 @@ class HandlerLineMarkerTest : BasePlatformTestCase() {
         // (в gutter платформа их визуально сливает в одну иконку).
         val ours = DaemonCodeAnalyzerImpl
             .getLineMarkers(myFixture.editor.document, project)
-            .count { it.lineMarkerTooltip?.startsWith("Перейти") == true }
+            .count { it.lineMarkerTooltip?.startsWith("Go to") == true }
         assertEquals(2, ours)
+    }
+
+    fun testRelatedItemsGroupName() {
+        myFixture.configureByFile("usage_single.php")
+        myFixture.doHighlighting()
+        val groups = DaemonCodeAnalyzerImpl
+            .getLineMarkers(myFixture.editor.document, project)
+            .filterIsInstance<RelatedItemLineMarkerInfo<*>>()
+            .filter { it.lineMarkerTooltip?.startsWith("Go to") == true }
+            .flatMap { it.createGotoRelatedItems() }
+            .map { it.group }
+        // Заголовок группы в popup "Related Symbol" — не дефолтный 'XML'.
+        assertFalse(groups.isEmpty())
+        assertTrue("groups=$groups", groups.all { it == "Handlers" })
     }
 
     fun testNoGutterWhenNoHandler() {
@@ -60,7 +75,7 @@ class HandlerLineMarkerTest : BasePlatformTestCase() {
         myFixture.doHighlighting()
         val ours = DaemonCodeAnalyzerImpl
             .getLineMarkers(myFixture.editor.document, project)
-            .count { it.lineMarkerTooltip?.startsWith("Перейти") == true }
+            .count { it.lineMarkerTooltip?.startsWith("Go to") == true }
         assertEquals(2, ours)
     }
 

@@ -29,9 +29,9 @@ class NaviBusConfigurable(private val project: Project) : BoundConfigurable("Nav
                 .columns(COLUMNS_LARGE)
                 .bindText(settings::attributeFqn)
         }.rowComment(
-            "Полный FQN атрибута, которым помечены методы-обработчики, " +
-                "например \\App\\Infrastructure\\MessageBus\\Autowire\\Handler. " +
-                "Атрибута может не быть в проекте."
+            "Fully qualified name of the attribute that marks handler methods, " +
+                "e.g. \\App\\Infrastructure\\MessageBus\\Autowire\\Handler. " +
+                "The attribute does not have to exist in the project."
         )
     }
 }

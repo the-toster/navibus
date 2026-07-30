@@ -31,11 +31,11 @@ class HandlerLineMarkerProvider : RelatedItemLineMarkerProvider() {
         val handlers = HandlerMethodSearch.getInstance(element.project).findHandlers(fqn)
         if (handlers.isEmpty()) return
 
-        val builder = NavigationGutterIconBuilder.create(AllIcons.Gutter.ImplementedMethod)
+        val builder = NavigationGutterIconBuilder.create(AllIcons.Gutter.ImplementedMethod, "Handlers")
             .setTargets(handlers)
             .setTooltipText(
-                if (handlers.size == 1) "Перейти к обработчику"
-                else "Перейти к обработчикам (${handlers.size})"
+                if (handlers.size == 1) "Go to handler"
+                else "Go to handlers (${handlers.size})"
             )
         result.add(builder.createLineMarkerInfo(element))
     }
