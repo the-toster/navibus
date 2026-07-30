@@ -180,8 +180,8 @@ class AttributeLineMarker : LineMarkerProvider {
 
 ## Что нужно сделать дальше (roadmap)
 
-1. Прописать зависимости в `build.gradle.kts` под нужную версию IDE.
-2. Уточнить реальный FQN целевого атрибута.
-3. Реализовать `AttributeLineMarker` (прямая навигация) + кэш.
-4. Заменить полный обход индекса на `FileBasedIndex`/`StubIndex`.
-5. Написать тесты навигации.
+1. ✅ Зависимости в `build.gradle.kts` (PhpStorm 2026.2.0.1, Kotlin 2.4.10, IPGP 2.18.1).
+2. ✅ FQN атрибута: `\App\Infrastructure\MessageBus\Autowire\Handler` (настраивается).
+3. ✅ `HandlerLineMarkerProvider` (прямая навигация) + кэш (`CachedValuesManager`).
+4. ✅ Поиск сужен через готовый `PhpAttributeIndex` PHP-плагина (не свой индекс).
+5. ✅ Тесты навигации + настроек (`HandlerLineMarkerTest`, `NaviBusSettingsTest`).
