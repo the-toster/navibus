@@ -1,3 +1,4 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
@@ -20,6 +21,13 @@ intellijPlatform {
             // Только PhpStorm 2026.2.x
             sinceBuild = "262"
             untilBuild = "262.*"
+        }
+    }
+
+    pluginVerification {
+        ides {
+            // Целевая IDE — только PhpStorm 2026.2.
+            create(IntelliJPlatformType.PhpStorm, "2026.2.0.1")
         }
     }
 }

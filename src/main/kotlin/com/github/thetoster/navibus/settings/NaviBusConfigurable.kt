@@ -19,8 +19,8 @@ class NaviBusConfigurable(private val project: Project) : BoundConfigurable("Han
 
     override fun apply() {
         super.apply()
-        // FQN мог измениться — пересчитать gutter-иконки.
-        DaemonCodeAnalyzer.getInstance(project).restart()
+        // FQN мог измениться — пересчитать gutter-иконки во всех файлах.
+        DaemonCodeAnalyzer.getInstance(project).restart("navibus: handler attribute changed")
     }
 
     override fun createPanel(): DialogPanel = panel {
