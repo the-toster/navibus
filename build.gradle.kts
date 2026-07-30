@@ -23,16 +23,18 @@ intellijPlatform {
 
     pluginConfiguration {
         ideaVersion {
-            // Только PhpStorm 2026.2.x
+            // PhpStorm 2026.2.x и 2026.3.x
             sinceBuild = "262"
-            untilBuild = "262.*"
+            untilBuild = "263.*"
         }
     }
 
     pluginVerification {
         ides {
-            // Целевая IDE — только PhpStorm 2026.2.
+            // Целевая IDE — PhpStorm 2026.2; плюс проверка совместимости с
+            // IDEA Ultimate 2026.2 (PHP-плагин Verifier подтянет с Marketplace).
             create(IntelliJPlatformType.PhpStorm, "2026.2.0.1")
+            create(IntelliJPlatformType.IntellijIdeaUltimate, "2026.2")
         }
     }
 }

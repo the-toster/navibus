@@ -26,8 +26,10 @@ message bus.
 - Собираемся против **PhpStorm 2026.2.0.1** (`phpstorm("2026.2.0.1")`); PHP встроен,
   подключается как `bundledPlugin("com.jetbrains.php")`.
 - **JDK 21** (`kotlin { jvmToolchain(21) }`), Gradle Wrapper (`./gradlew`).
-- Диапазон совместимости — только **2026.2.x** (`sinceBuild = "262"`,
-  `untilBuild = "262.*"`).
+- Диапазон совместимости — **2026.2.x–2026.3.x** (`sinceBuild = "262"`,
+  `untilBuild = "263.*"`). Верхнюю границу расширили вперёд на ветку 263; когда
+  выйдет 2026.3 (EAP/релиз) — добавить её в `pluginVerification.ides` и прогнать
+  `verifyPlugin`, чтобы убедиться, что внутренние API PHP-плагина не сломались.
 - `instrumentCode = false` и `buildSearchableOptions = false` (плагин чисто на
   Kotlin, форм/Java нет; одно поле настроек не стоит headless-индексации).
 
