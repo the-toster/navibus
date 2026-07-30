@@ -9,11 +9,10 @@
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.jetbrains.php</depends>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.thetoster.navibus.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-        <postStartupActivity implementation="com.github.thetoster.navibus.startup.MyProjectActivity" />
     </extensions>
 </idea-plugin>

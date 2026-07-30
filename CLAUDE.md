@@ -13,8 +13,8 @@
 - **методом-обработчиком**, который принимает объект этого класса параметром
   **и** помечен целевым атрибутом.
 
-Целевой атрибут (замени на реальный из проекта пользователя):
-`\App\Attribute\Handler`
+Целевой атрибут (дефолт, настраивается в Settings, project-level):
+`\App\Infrastructure\MessageBus\Autowire\Handler`
 
 Надо учесть:
 - целевой атрибут должен быть настраиваемый
@@ -94,7 +94,7 @@ import com.jetbrains.php.lang.psi.elements.ClassReference
 import com.jetbrains.php.lang.psi.elements.Method
 import com.jetbrains.php.lang.psi.elements.PhpClass
 
-private const val TARGET_ATTRIBUTE = "\\App\\Attribute\\Handler"
+private const val TARGET_ATTRIBUTE = "\\App\\Infrastructure\\MessageBus\\Autowire\\Handler"
 
 class AttributeLineMarker : LineMarkerProvider {
 
@@ -148,7 +148,7 @@ class AttributeLineMarker : LineMarkerProvider {
 - `PhpClass.methods`, `Method.parameters`, `Method.attributes`
 - `PhpAttribute.fqn` — FQN атрибута
 - `Parameter.declaredType` (`PhpType`) — объявленный тип параметра
-- `PhpIndex` — индекс классов/методов; для обратного поиска — `ReferencesSearch`
+- `PhpIndex` — индекс классов/методов
 
 ## ВАЖНО: производительность
 
@@ -183,6 +183,5 @@ class AttributeLineMarker : LineMarkerProvider {
 1. Прописать зависимости в `build.gradle.kts` под нужную версию IDE.
 2. Уточнить реальный FQN целевого атрибута.
 3. Реализовать `AttributeLineMarker` (прямая навигация) + кэш.
-4. Добавить обратный `LineMarkerProvider` от метода к использованиям.
-5. Заменить полный обход индекса на `FileBasedIndex`/`StubIndex`.
-6. Написать тесты навигации в обе стороны.
+4. Заменить полный обход индекса на `FileBasedIndex`/`StubIndex`.
+5. Написать тесты навигации.
