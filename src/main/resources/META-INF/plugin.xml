@@ -4,8 +4,9 @@
     <name>navibus</name>
     <vendor>the-toster</vendor>
     <description><![CDATA[
-        <p><b>navibus</b> adds gutter-icon navigation from a PHP class to the handler methods for that class
-        — methods marked with a configurable attribute and accepting the class as a parameter.</p>
+        <p>Navigation from a PHP class to its handler methods
+        — methods marked with some attribute and accepting the class as a parameter.</p>
+        <p>Appears as a gutter icon on lines that reference or define the class.</p>
         <p>Intended to be useful for various message bus implementations.</p>
         <p>The target attribute FQN is configured per project in <i>Settings | Tools | Navibus</i>.</p>
     ]]></description>
