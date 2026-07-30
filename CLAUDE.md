@@ -1,187 +1,95 @@
 # CLAUDE.md
 
-Контекст проекта для Claude Code. Проект собран из шаблона
-[intellij-platform-plugin-template](https://github.com/JetBrains/intellij-platform-plugin-template)
-и пока пустой (только скелет).
+Контекст проекта для Claude Code.
 
-## Задача
+## Что это
 
-Плагин для **PhpStorm**, реализующий навигацию между:
+Плагин **navibus** для **PhpStorm** — gutter-навигация от PHP-класса к его
+**методам-обработчикам**: методам, которые помечены целевым атрибутом **и**
+принимают объект этого класса параметром. Задумано для разных реализаций
+message bus.
 
-- **упоминанием класса** в коде (`ClassReference` — например, тип-хинт,
-  `new`, использование имени класса), и
-- **методом-обработчиком**, который принимает объект этого класса параметром
-  **и** помечен целевым атрибутом.
+Иконка в gutter ставится:
+- на **упоминании** класса (`ClassReference` — тип-хинт, `new`, и т.п.);
+- на **определении** класса (`PhpClass`, на имени класса).
 
-Целевой атрибут (дефолт, настраивается в Settings, project-level):
-`\App\Infrastructure\MessageBus\Autowire\Handler`
+Переход ведёт к одному или нескольким обработчикам.
 
-Надо учесть:
-- целевой атрибут должен быть настраиваемый
-- этого атрибута может не быть в проекте, плагин не должен падать от этого
-- обработчиков может быть от 0 до N,
-- в одной строке мжет быть несколько классов
+Учтено: целевой атрибут **настраиваемый** (project-level); атрибута может не быть
+в проекте — плагин не падает; обработчиков от 0 до N; в одной строке может быть
+несколько классов (у каждого свой маркер).
 
+## Стек и версии
 
+- Язык: **Kotlin 2.4.10** (под платформенный Kotlin 2.4.0).
+- **IntelliJ Platform Gradle Plugin 2.18.1** (`org.jetbrains.intellij.platform`).
+- Собираемся против **PhpStorm 2026.2.0.1** (`phpstorm("2026.2.0.1")`); PHP встроен,
+  подключается как `bundledPlugin("com.jetbrains.php")`.
+- **JDK 21** (`kotlin { jvmToolchain(21) }`), Gradle Wrapper (`./gradlew`).
+- Диапазон совместимости — только **2026.2.x** (`sinceBuild = "262"`,
+  `untilBuild = "262.*"`).
+- `instrumentCode = false` и `buildSearchableOptions = false` (плагин чисто на
+  Kotlin, форм/Java нет; одно поле настроек не стоит headless-индексации).
 
-## Стек и требования
+Все нетривиальные причины этих версий/флагов — в памяти проекта (см.
+`memory/`), в частности почему нужен IPGP ≥ 2.18.1.
 
-- Язык плагина: **Kotlin**
-- **IntelliJ Platform Gradle Plugin 2.x** (`org.jetbrains.intellij.platform`)
-- **JDK 21** (требование платформы 2024.2+ / 2026.x)
-- **Gradle Wrapper** 8.5+ (использовать `./gradlew`, не системный gradle)
-- Зависимость от PHP-плагина: `depends com.jetbrains.php`
-- Для сборки нужен **IntelliJ IDEA Ultimate** SDK (PHP-плагина нет в Community)
-- Версию PHP-плагина брать точно под версию IDE с JetBrains Marketplace
+## Структура кода
 
-## Пример build.gradle.kts (зависимости)
+Пакет `com.github.thetoster.navibus`.
 
-```kotlin
-plugins {
-    id("java")
-    id("org.jetbrains.kotlin.jvm") version "2.0.0"
-    id("org.jetbrains.intellij.platform") version "2.1.0"
-}
-
-repositories {
-    mavenCentral()
-    intellijPlatform { defaultRepositories() }
-}
-
-dependencies {
-    intellijPlatform {
-        intellijIdeaUltimate("2024.2")
-        plugin("com.jetbrains.php:242.20224.155") // подобрать под версию IDE
-        instrumentationTools()
-        testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
-    }
-    testImplementation("junit:junit:4.13.2")
-}
-```
-
-## plugin.xml (ключевое)
-
-```xml
-<idea-plugin>
-    <id>com.example.attr-nav</id>
-    <name>Attribute Navigation</name>
-    <depends>com.jetbrains.php</depends>
-
-    <extensions defaultExtensionNs="com.intellij">
-        <codeInsight.lineMarkerProvider
-            language="PHP"
-            implementationClass="com.example.AttributeLineMarker"/>
-    </extensions>
-</idea-plugin>
-```
-
-## Черновик реализации (LineMarkerProvider, gutter-иконки)
-
-Идея: на leaf-элементе идентификатора внутри `ClassReference` берём FQN класса,
-ищем методы с целевым атрибутом, у которых есть параметр этого типа, и вешаем
-иконку-переход через `NavigationGutterIconBuilder`.
-
-```kotlin
-package com.example
-
-import com.intellij.codeInsight.daemon.LineMarkerInfo
-import com.intellij.codeInsight.daemon.LineMarkerProvider
-import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder
-import com.intellij.icons.AllIcons
-import com.intellij.psi.PsiElement
-import com.jetbrains.php.PhpIndex
-import com.jetbrains.php.lang.psi.elements.ClassReference
-import com.jetbrains.php.lang.psi.elements.Method
-import com.jetbrains.php.lang.psi.elements.PhpClass
-
-private const val TARGET_ATTRIBUTE = "\\App\\Infrastructure\\MessageBus\\Autowire\\Handler"
-
-class AttributeLineMarker : LineMarkerProvider {
-
-    override fun getLineMarkerInfo(element: PsiElement): LineMarkerInfo<*>? {
-        if (element.firstChild != null) return null // только leaf
-
-        val classRef = element.parent as? ClassReference ?: return null
-        val fqn = classRef.fqn ?: return null
-
-        val methods = findHandlerMethods(element.project, fqn)
-        if (methods.isEmpty()) return null
-
-        return NavigationGutterIconBuilder.create(AllIcons.Gutter.ImplementedMethod)
-            .setTargets(methods)
-            .setTooltipText("Перейти к обработчику")
-            .createLineMarkerInfo(element)
-    }
-
-    private fun findHandlerMethods(
-        project: com.intellij.openapi.project.Project,
-        classFqn: String
-    ): List<Method> {
-        val phpIndex = PhpIndex.getInstance(project)
-        val result = mutableListOf<Method>()
-        for (name in phpIndex.getAllClassFqns(null)) {
-            for (cls in phpIndex.getClassesByFQN(name)) {
-                collectMatchingMethods(cls, classFqn, result)
-            }
-        }
-        return result
-    }
-
-    private fun collectMatchingMethods(
-        cls: PhpClass, classFqn: String, out: MutableList<Method>
-    ) {
-        for (method in cls.methods) {
-            val hasAttr = method.attributes.any { it.fqn == TARGET_ATTRIBUTE }
-            if (!hasAttr) continue
-            val accepts = method.parameters.any { p ->
-                p.declaredType.types.any { it == classFqn }
-            }
-            if (accepts) out.add(method)
-        }
-    }
-}
-```
+- `HandlerLineMarkerProvider` (`RelatedItemLineMarkerProvider`) — вешает
+  gutter-иконку. Регистрируется в `plugin.xml` как
+  `codeInsight.lineMarkerProvider` для языка PHP. Работает на leaf-элементе:
+  распознаёт последний идентификатор `ClassReference` и имя `PhpClass`, берёт FQN,
+  спрашивает обработчиков, строит маркер через `NavigationGutterIconBuilder`.
+- `HandlerMethodSearch` (project `@Service`) — поиск обработчиков. Строит карту
+  «тип параметра → методы» и кэширует её через `CachedValuesManager`
+  (инвалидация по `PsiModificationTracker.MODIFICATION_COUNT` и по изменению
+  настроек). Кандидаты берутся **прямым запросом к `PhpAttributeIndex`**
+  PHP-плагина (использования атрибута по FQN) — без полного обхода классов
+  проекта. Тип параметра резолвится через `PhpType.global(project)` (иначе
+  импортированное короткое имя не совпадёт с FQN из `ClassReference`).
+- `settings/NaviBusSettings` — project-level `PersistentStateComponent`
+  (хранит FQN атрибута; дефолт `\App\Infrastructure\MessageBus\Autowire\Handler`;
+  нормализует FQN). Является `SimpleModificationTracker` для инвалидации кэша.
+- `settings/NaviBusConfigurable` — страница **Settings | Tools | Navibus**
+  (Kotlin UI DSL). В `apply()` перезапускает анализатор, чтобы иконки
+  пересчитались при смене FQN.
 
 ## Ключевые API PHP-плагина
 
-- `ClassReference.fqn` — FQN упоминаемого класса
-- `PhpClass.methods`, `Method.parameters`, `Method.attributes`
-- `PhpAttribute.fqn` — FQN атрибута
-- `Parameter.declaredType` (`PhpType`) — объявленный тип параметра
-- `PhpIndex` — индекс классов/методов
+- `ClassReference.fqn` — FQN упоминаемого класса; `PhpClass.fqn` /
+  `nameIdentifier` — для определения класса.
+- `PhpAttributeIndex` (`StubIndex<String, PhpAttribute>`) — использования атрибута
+  по FQN; ключи в нижнем регистре с ведущим `\`. `PhpAttribute.getOwner()` →
+  метод/класс/параметр. (NB: `PhpAttributesFQNsIndex` индексирует *объявление*
+  атрибута, не использования — не то.)
+- `Method.getAttributes(fqn)`, `Method.parameters`,
+  `Parameter.declaredType` (`PhpType`), `PhpType.global(project)`.
 
-## ВАЖНО: производительность
-
-Наивный обход `getAllClassFqns` на каждый gutter-элемент недопустимо медленный.
-В рабочей версии нужно:
-
-- кэшировать карту «класс-параметр → методы» через `CachedValuesManager` +
-  `PsiModificationTracker`;
-- сузить поиск через собственный `FileBasedIndex` / `StubIndex`, индексирующий
-  только классы с целевым атрибутом;
-- проверять `attributes` до дорогих операций.
-
-## Основные Gradle-задачи
+## Gradle-задачи
 
 ```bash
-./gradlew build         # компиляция + сборка
-./gradlew runIde        # запуск IDE-песочницы с плагином
+./gradlew build         # компиляция + тесты
 ./gradlew test          # юнит-тесты (BasePlatformTestCase)
-./gradlew verifyPlugin  # Plugin Verifier — проверка совместимости
+./gradlew runIde        # запуск PhpStorm-песочницы с плагином
+./gradlew verifyPlugin  # Plugin Verifier против PhpStorm 2026.2.0.1
 ./gradlew buildPlugin   # .zip в build/distributions/
 ```
 
+`verifyPlugin` настроен на `PhpStorm 2026.2.0.1` (блок `pluginVerification`).
+
 ## Тестирование
 
-- База: `BasePlatformTestCase` из test-фреймворка платформы
-- Фикстуры `.php` кладём в `src/test/testData/`
-- Проверка gutter: `myFixture.findGuttersAtCaret()`
-- Проверка перехода: `myFixture.performEditorAction(...)`
+- База: `BasePlatformTestCase`; фикстуры `.php` в `src/test/testData/navigation/`.
+- `HandlerLineMarkerTest` покрывает: резолв импортированного короткого имени
+  (дискриминатор), 0/1/N обработчиков, несколько классов в строке, иконку на
+  определении класса, отсутствие атрибута (без падений), регистронезависимость.
+- `NaviBusSettingsTest` — дефолт, персист+trim, построение панели.
 
-## Что нужно сделать дальше (roadmap)
+## Демо
 
-1. ✅ Зависимости в `build.gradle.kts` (PhpStorm 2026.2.0.1, Kotlin 2.4.10, IPGP 2.18.1).
-2. ✅ FQN атрибута: `\App\Infrastructure\MessageBus\Autowire\Handler` (настраивается).
-3. ✅ `HandlerLineMarkerProvider` (прямая навигация) + кэш (`CachedValuesManager`).
-4. ✅ Поиск сужен через готовый `PhpAttributeIndex` PHP-плагина (не свой индекс).
-5. ✅ Тесты навигации + настроек (`HandlerLineMarkerTest`, `NaviBusSettingsTest`).
+`sample-project/` — маленький PHP-проект с дефолтным атрибутом для ручной
+проверки в `runIde` (открыть как проект, смотреть иконки в `UserController`/на
+определениях классов-сообщений).
