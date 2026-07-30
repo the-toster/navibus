@@ -10,10 +10,10 @@ import com.intellij.ui.dsl.builder.columns
 import com.intellij.ui.dsl.builder.panel
 
 /**
- * Страница настроек (Settings | Tools | Handler Navigation).
+ * Страница настроек (Settings | Tools | Navibus).
  * Позволяет задать FQN атрибута-маркера обработчика per-project.
  */
-class NaviBusConfigurable(private val project: Project) : BoundConfigurable("Handler Navigation") {
+class NaviBusConfigurable(private val project: Project) : BoundConfigurable("Navibus") {
 
     private val settings = NaviBusSettings.getInstance(project)
 

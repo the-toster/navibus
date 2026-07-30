@@ -16,6 +16,11 @@ intellijPlatform {
     // инструментирование байткода не нужно.
     instrumentCode = false
 
+    // Одно простое поле настроек не стоит индексации через запуск headless-IDE
+    // на каждой сборке (к тому же конфликтует с открытым runIde по блокировке
+    // песочницы).
+    buildSearchableOptions = false
+
     pluginConfiguration {
         ideaVersion {
             // Только PhpStorm 2026.2.x

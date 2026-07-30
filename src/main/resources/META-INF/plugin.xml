@@ -4,14 +4,14 @@
     <name>navibus</name>
     <vendor>the-toster</vendor>
     <description><![CDATA[
-        <p><b>navibus</b> is a repository that provides a pure template to make it easier to create a new plugin project.</p>
-        <p>The main goal of this template is to speed up the setup phase of plugin development for both new and experienced developers by preconfiguring the project scaffold and CI, linking to the proper documentation pages, and keeping everything organized.</p>
+        <p><b>navibus</b> adds gutter-icon navigation from a PHP class to the handler methods for that class
+        — methods marked with a configurable attribute and accepting the class as a parameter.</p>
+        <p>Intended to be useful for various message bus implementations.</p>
+        <p>The target attribute FQN is configured per project in <i>Settings | Tools | Navibus</i>.</p>
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.jetbrains.php</depends>
-
-    <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
         <codeInsight.lineMarkerProvider
@@ -21,6 +21,6 @@
             parentId="tools"
             id="com.github.thetoster.navibus.settings.NaviBusConfigurable"
             instance="com.github.thetoster.navibus.settings.NaviBusConfigurable"
-            displayName="Handler Navigation"/>
+            displayName="Navibus"/>
     </extensions>
 </idea-plugin>
