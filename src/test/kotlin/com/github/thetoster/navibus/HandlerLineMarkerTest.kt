@@ -53,6 +53,17 @@ class HandlerLineMarkerTest : BasePlatformTestCase() {
         assertTrue(myFixture.findGuttersAtCaret().isEmpty())
     }
 
+    fun testMarkerOnClassDefinition() {
+        // messages.php (открыт в setUp) содержит определения Foo, Bar (есть
+        // обработчики) и Plain (нет).
+        myFixture.openFileInEditor(myFixture.findFileInTempDir("messages.php"))
+        myFixture.doHighlighting()
+        val ours = DaemonCodeAnalyzerImpl
+            .getLineMarkers(myFixture.editor.document, project)
+            .count { it.lineMarkerTooltip?.startsWith("Перейти") == true }
+        assertEquals(2, ours)
+    }
+
     // Требование: атрибута может не быть в проекте — плагин не должен падать.
     fun testAbsentAttributeYieldsNothing() {
         NaviBusSettings.getInstance(project).attributeFqn = "\\App\\Nonexistent\\Attr"

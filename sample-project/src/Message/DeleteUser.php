@@ -1,0 +1,4 @@
+<?php
+namespace App\Message;
+
+final class DeleteUser {}
