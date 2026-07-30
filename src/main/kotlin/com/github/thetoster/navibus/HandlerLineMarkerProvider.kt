@@ -5,6 +5,7 @@ import com.intellij.codeInsight.daemon.RelatedItemLineMarkerProvider
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder
 import com.intellij.icons.AllIcons
 import com.intellij.psi.PsiElement
+import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.php.lang.psi.elements.ClassReference
 import com.jetbrains.php.lang.psi.elements.PhpClass
 
@@ -31,11 +32,17 @@ class HandlerLineMarkerProvider : RelatedItemLineMarkerProvider() {
         val handlers = HandlerMethodSearch.getInstance(element.project).findHandlers(fqn)
         if (handlers.isEmpty()) return
 
+        // Не ведём переход «сам на себя»: если якорь иконки лежит внутри самого
+        // метода-обработчика (тип-хинт его же параметра), эта цель бесполезна.
+        // Остаются только «соседние» обработчики; если их нет — иконку не рисуем.
+        val targets = handlers.filterNot { PsiTreeUtil.isAncestor(it, element, false) }
+        if (targets.isEmpty()) return
+
         val builder = NavigationGutterIconBuilder.create(AllIcons.Gutter.ImplementedMethod, "Handlers")
-            .setTargets(handlers)
+            .setTargets(targets)
             .setTooltipText(
-                if (handlers.size == 1) "Go to handler"
-                else "Go to handlers (${handlers.size})"
+                if (targets.size == 1) "Go to handler"
+                else "Go to handlers (${targets.size})"
             )
         result.add(builder.createLineMarkerInfo(element))
     }

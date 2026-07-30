@@ -79,6 +79,30 @@ class HandlerLineMarkerTest : BasePlatformTestCase() {
         assertEquals(2, ours)
     }
 
+    // Иконка на тип-хинте параметра самого обработчика не должна вести «сам на
+    // себя». onBar — единственный обработчик Bar => на его хинте иконки нет;
+    // onFoo имеет соседа onFooAgain => иконка есть, но с единственной целью.
+    fun testNoSelfNavigationOnHandlerParam() {
+        myFixture.openFileInEditor(myFixture.findFileInTempDir("handlers.php"))
+        myFixture.doHighlighting()
+        val doc = myFixture.editor.document
+        val text = doc.text
+
+        fun tooltipAt(marker: String): String? {
+            val line = doc.getLineNumber(text.indexOf(marker))
+            return DaemonCodeAnalyzerImpl
+                .getLineMarkers(doc, project)
+                .filter { it.lineMarkerTooltip?.startsWith("Go to") == true }
+                .firstOrNull { doc.getLineNumber(it.element!!.textRange.startOffset) == line }
+                ?.lineMarkerTooltip
+        }
+
+        // Единственный обработчик своего класса -> иконки нет.
+        assertNull(tooltipAt("public function onBar(Bar \$bar)"))
+        // Есть сосед onFooAgain -> иконка ведёт к нему одному.
+        assertEquals("Go to handler", tooltipAt("public function onFoo(Foo \$foo)"))
+    }
+
     // Требование: атрибута может не быть в проекте — плагин не должен падать.
     fun testAbsentAttributeYieldsNothing() {
         NaviBusSettings.getInstance(project).attributeFqn = "\\App\\Nonexistent\\Attr"

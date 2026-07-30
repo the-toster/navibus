@@ -1,3 +1,4 @@
+import org.jetbrains.changelog.Changelog
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
@@ -27,6 +28,22 @@ intellijPlatform {
             sinceBuild = "262"
             untilBuild = "263.*"
         }
+
+        // <change-notes> плагина берём из CHANGELOG.md — секцию текущей версии
+        // (а не [Unreleased], т.к. изменения разложены по номерам). Fallback на
+        // [Unreleased], если секции с таким номером ещё нет. Рендерим на этапе
+        // конфигурации: держать `changelog` внутри провайдера нельзя — он тянет
+        // Project и ломает configuration cache.
+        val pluginVersion = providers.gradleProperty("version").get()
+        val renderedNotes = with(changelog) {
+            renderItem(
+                (getOrNull(pluginVersion) ?: getUnreleased())
+                    .withHeader(false)
+                    .withEmptySections(false),
+                Changelog.OutputType.HTML,
+            )
+        }
+        changeNotes = provider { renderedNotes }
     }
 
     pluginVerification {
