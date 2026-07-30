@@ -14,5 +14,10 @@
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
+        <projectConfigurable
+            parentId="tools"
+            id="com.github.thetoster.navibus.settings.NaviBusConfigurable"
+            instance="com.github.thetoster.navibus.settings.NaviBusConfigurable"
+            displayName="Handler Navigation"/>
     </extensions>
 </idea-plugin>
