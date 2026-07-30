@@ -14,6 +14,9 @@
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
+        <codeInsight.lineMarkerProvider
+            language="PHP"
+            implementationClass="com.github.thetoster.navibus.HandlerLineMarkerProvider"/>
         <projectConfigurable
             parentId="tools"
             id="com.github.thetoster.navibus.settings.NaviBusConfigurable"

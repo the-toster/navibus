@@ -1,5 +1,6 @@
 package com.github.thetoster.navibus.settings
 
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.options.BoundConfigurable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogPanel
@@ -12,9 +13,15 @@ import com.intellij.ui.dsl.builder.panel
  * Страница настроек (Settings | Tools | Handler Navigation).
  * Позволяет задать FQN атрибута-маркера обработчика per-project.
  */
-class NaviBusConfigurable(project: Project) : BoundConfigurable("Handler Navigation") {
+class NaviBusConfigurable(private val project: Project) : BoundConfigurable("Handler Navigation") {
 
     private val settings = NaviBusSettings.getInstance(project)
+
+    override fun apply() {
+        super.apply()
+        // FQN мог измениться — пересчитать gutter-иконки.
+        DaemonCodeAnalyzer.getInstance(project).restart()
+    }
 
     override fun createPanel(): DialogPanel = panel {
         row("Handler attribute FQN:") {
