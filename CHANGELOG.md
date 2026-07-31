@@ -4,7 +4,10 @@
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-07-31
+
 ### Added
+
 - Bus icon
 - Message class type filter: a new **Message base type FQN** field on the
   **Settings | Tools | Navibus** page. When an interface/class FQN is set, the gutter
@@ -13,18 +16,28 @@
   field disables the filter and keeps the previous behavior.
 
 ## [0.0.2]
+
 ### Fixed
+
 - The icon on a handler's own parameter type hint no longer navigates "to itself":
   such a target is filtered out, and if there are no other handlers, the icon is not
   shown at all.
 
 ## [0.0.1]
+
 ### Added
+
 - Gutter navigation from a PHP class to its handler methods (marked with the target
   attribute and accepting an instance of the class as a parameter). The icon is placed
   both on a class reference and on its definition; navigation leads to 0..N handlers.
 - Configurable target attribute FQN on the **Settings | Tools | Navibus** page.
 
 ### Changed
+
 - Extended the IDE compatibility range to **2026.2.x–2026.3.x**
   (`untilBuild = "263.*"`).
+
+[Unreleased]: https://github.com/the-toster/navibus/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/the-toster/navibus/compare/v0.0.2...v0.0.3
+[0.0.2]: https://github.com/the-toster/navibus/compare/v0.0.1...v0.0.2
+[0.0.1]: https://github.com/the-toster/navibus/commits/v0.0.1
