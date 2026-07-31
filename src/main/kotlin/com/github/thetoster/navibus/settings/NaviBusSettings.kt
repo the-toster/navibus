@@ -19,7 +19,10 @@ const val DEFAULT_HANDLER_ATTRIBUTE_FQN = "\\App\\Infrastructure\\MessageBus\\Au
 @State(name = "NaviBusSettings", storages = [Storage("navibus.xml")])
 class NaviBusSettings : SimpleModificationTracker(), PersistentStateComponent<NaviBusSettings.State> {
 
-    data class State(var attributeFqn: String = DEFAULT_HANDLER_ATTRIBUTE_FQN)
+    data class State(
+        var attributeFqn: String = DEFAULT_HANDLER_ATTRIBUTE_FQN,
+        var messageBaseFqn: String = "",
+    )
 
     private var myState = State()
 
@@ -37,6 +40,21 @@ class NaviBusSettings : SimpleModificationTracker(), PersistentStateComponent<Na
             val normalized = value.trim()
             if (normalized != myState.attributeFqn) {
                 myState.attributeFqn = normalized
+                incModificationCount()
+            }
+        }
+
+    /**
+     * FQN интерфейса/родительского класса, которым обязан быть подтип класс-сообщение,
+     * чтобы получить маркер. Пусто — фильтр выключен (текущее поведение). Нормализуется
+     * (trim); при пустом значении маркер ставится для любого класса с обработчиками.
+     */
+    var messageBaseFqn: String
+        get() = myState.messageBaseFqn.trim()
+        set(value) {
+            val normalized = value.trim()
+            if (normalized != myState.messageBaseFqn) {
+                myState.messageBaseFqn = normalized
                 incModificationCount()
             }
         }

@@ -4,19 +4,27 @@
 
 ## [Unreleased]
 
+## [0.0.3]
+### Added
+- Message class type filter: a new **Message base type FQN** field on the
+  **Settings | Tools | Navibus** page. When an interface/class FQN is set, the gutter
+  icon is shown only for classes that `implement`/`extend` it (transitively, strictly —
+  parent classes and interfaces only; traits and `@mixin` are not considered). An empty
+  field disables the filter and keeps the previous behavior.
+
 ## [0.0.2]
 ### Fixed
-- Иконка на тип-хинте параметра самого обработчика больше не ведёт «сам на себя»:
-  такая цель отфильтровывается, а если других обработчиков нет — иконка не
-  показывается вовсе.
+- The icon on a handler's own parameter type hint no longer navigates "to itself":
+  such a target is filtered out, and if there are no other handlers, the icon is not
+  shown at all.
 
 ## [0.0.1]
 ### Added
-- Gutter-навигация от PHP-класса к его методам-обработчикам (помечены целевым
-  атрибутом и принимают объект класса параметром). Иконка ставится и на
-  упоминании класса, и на его определении; переход ведёт к 0..N обработчикам.
-- Настраиваемый FQN целевого атрибута на странице **Settings | Tools | Navibus**.
+- Gutter navigation from a PHP class to its handler methods (marked with the target
+  attribute and accepting an instance of the class as a parameter). The icon is placed
+  both on a class reference and on its definition; navigation leads to 0..N handlers.
+- Configurable target attribute FQN on the **Settings | Tools | Navibus** page.
 
 ### Changed
-- Расширен диапазон совместимости IDE до **2026.2.x–2026.3.x**
+- Extended the IDE compatibility range to **2026.2.x–2026.3.x**
   (`untilBuild = "263.*"`).

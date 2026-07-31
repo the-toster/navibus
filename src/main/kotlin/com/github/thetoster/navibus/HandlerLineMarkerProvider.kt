@@ -29,8 +29,14 @@ class HandlerLineMarkerProvider : RelatedItemLineMarkerProvider() {
         val fqn = classFqnForLeaf(element) ?: return
         if (fqn.isBlank()) return
 
-        val handlers = HandlerMethodSearch.getInstance(element.project).findHandlers(fqn)
+        val search = HandlerMethodSearch.getInstance(element.project)
+        val handlers = search.findHandlers(fqn)
         if (handlers.isEmpty()) return
+
+        // Фильтр «класс-сообщение по implements/extends». Проверяем по уже известному
+        // FQN (иерархия резолвится через PhpIndex внутри search) — только когда фильтр
+        // активен и обработчики уже найдены, чтобы не дёргать индекс на каждый leaf.
+        if (search.isMessageFilterActive() && !search.isMessageClass(fqn)) return
 
         // Не ведём переход «сам на себя»: если якорь иконки лежит внутри самого
         // метода-обработчика (тип-хинт его же параметра), эта цель бесполезна.

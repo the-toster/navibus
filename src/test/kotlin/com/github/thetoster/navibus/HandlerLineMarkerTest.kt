@@ -1,6 +1,7 @@
 package com.github.thetoster.navibus
 
 import com.github.thetoster.navibus.settings.NaviBusSettings
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo
 import com.intellij.codeInsight.daemon.impl.DaemonCodeAnalyzerImpl
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -13,10 +14,29 @@ class HandlerLineMarkerTest : BasePlatformTestCase() {
         super.setUp()
         // FQN атрибута из фикстур (короче реального дефолта).
         NaviBusSettings.getInstance(project).attributeFqn = "\\App\\Attribute\\Handler"
+        // Фильтр по типу выключен по умолчанию; сбрасываем, т.к. light-проект
+        // переиспользуется между тестами (иначе значение фильтра протекает).
+        NaviBusSettings.getInstance(project).messageBaseFqn = ""
         myFixture.configureByFiles("messages.php", "attribute.php", "handlers.php")
     }
 
     private fun search() = HandlerMethodSearch.getInstance(project)
+
+    /** Число наших gutter-маркеров в текущем редакторе (по тултипу "Go to..."). */
+    private fun goToMarkerCount(): Int =
+        DaemonCodeAnalyzerImpl
+            .getLineMarkers(myFixture.editor.document, project)
+            .count { it.lineMarkerTooltip?.startsWith("Go to") == true }
+
+    /** Есть ли наш маркер на строке, где впервые встречается [marker]. */
+    private fun hasMarkerAtLineOf(marker: String): Boolean {
+        val doc = myFixture.editor.document
+        val line = doc.getLineNumber(doc.text.indexOf(marker))
+        return DaemonCodeAnalyzerImpl
+            .getLineMarkers(doc, project)
+            .filter { it.lineMarkerTooltip?.startsWith("Go to") == true }
+            .any { doc.getLineNumber(it.element!!.textRange.startOffset) == line }
+    }
 
     // Дискриминатор: тип-хинт обработчика задан импортированным коротким именем.
     // Если резолв FQN не работает — списки будут пустыми.
@@ -69,14 +89,11 @@ class HandlerLineMarkerTest : BasePlatformTestCase() {
     }
 
     fun testMarkerOnClassDefinition() {
-        // messages.php (открыт в setUp) содержит определения Foo, Bar (есть
-        // обработчики) и Plain (нет).
+        // messages.php содержит определения Foo, Bar, Loose, Trec (есть обработчики)
+        // и Plain (нет). Фильтр по типу выключен (дефолт) → маркер у всех четырёх.
         myFixture.openFileInEditor(myFixture.findFileInTempDir("messages.php"))
         myFixture.doHighlighting()
-        val ours = DaemonCodeAnalyzerImpl
-            .getLineMarkers(myFixture.editor.document, project)
-            .count { it.lineMarkerTooltip?.startsWith("Go to") == true }
-        assertEquals(2, ours)
+        assertEquals(4, goToMarkerCount())
     }
 
     // Иконка на тип-хинте параметра самого обработчика не должна вести «сам на
@@ -101,6 +118,81 @@ class HandlerLineMarkerTest : BasePlatformTestCase() {
         assertNull(tooltipAt("public function onBar(Bar \$bar)"))
         // Есть сосед onFooAgain -> иконка ведёт к нему одному.
         assertEquals("Go to handler", tooltipAt("public function onFoo(Foo \$foo)"))
+    }
+
+    // Фильтр по типу ограничивает маркеры подтипами базового FQN. Пара «выключен →
+    // включён» на определениях messages.php: Foo/Bar/Loose/Trec (4) сужаются до
+    // Foo/Bar (2). Loose имеет обработчик, но не подтип Envelope — выпадает.
+    fun testMessageFilterRestrictsToSubtypes() {
+        val settings = NaviBusSettings.getInstance(project)
+        myFixture.openFileInEditor(myFixture.findFileInTempDir("messages.php"))
+
+        myFixture.doHighlighting()
+        assertEquals("filter off: markers on Foo, Bar, Loose, Trec", 4, goToMarkerCount())
+
+        settings.messageBaseFqn = "\\App\\Message\\Envelope"
+        // Смена настройки не меняет PSI — форсируем пересчёт маркеров (в проде это
+        // делает NaviBusConfigurable.apply()).
+        DaemonCodeAnalyzer.getInstance(project).restart("navibus test: settings changed")
+        myFixture.doHighlighting()
+        assertEquals("filter on: Loose dropped", 2, goToMarkerCount())
+        assertTrue("Bar implements Envelope directly", hasMarkerAtLineOf("class Bar"))
+        assertFalse("Loose is not a subtype", hasMarkerAtLineOf("class Loose"))
+    }
+
+    // Транзитивность: Foo реализует Command, а Command расширяет Envelope. Фильтр по
+    // Envelope обязан пропускать Foo (проверяет обход всей иерархии, а не только
+    // прямых интерфейсов).
+    fun testMessageFilterIsTransitive() {
+        NaviBusSettings.getInstance(project).messageBaseFqn = "\\App\\Message\\Envelope"
+        myFixture.openFileInEditor(myFixture.findFileInTempDir("messages.php"))
+        myFixture.doHighlighting()
+        assertTrue("Foo -> Command -> Envelope", hasMarkerAtLineOf("class Foo"))
+    }
+
+    // Строгая семантика: `use TraitName` — это не implements/extends. Trec использует
+    // трейт Marker; фильтр по \App\Message\Marker не должен давать ему маркер (ни один
+    // класс не наследует/реализует Marker) → 0 маркеров.
+    fun testMessageFilterExcludesTraits() {
+        NaviBusSettings.getInstance(project).messageBaseFqn = "\\App\\Message\\Marker"
+        myFixture.openFileInEditor(myFixture.findFileInTempDir("messages.php"))
+        DaemonCodeAnalyzer.getInstance(project).restart("navibus test: settings changed")
+        myFixture.doHighlighting()
+        assertEquals(0, goToMarkerCount())
+        assertFalse("trait use is not implements/extends", hasMarkerAtLineOf("class Trec"))
+    }
+
+    // Регресс: при активном фильтре маркер на тип-хинте параметра обработчика (тоже
+    // ClassReference) не должен пропадать, если класс — подтип. Foo реализует
+    // Command extends Envelope, у onFoo есть сосед onFooAgain → иконка обязана
+    // остаться и с фильтром по Envelope.
+    fun testMessageFilterKeepsHandlerParamMarker() {
+        NaviBusSettings.getInstance(project).messageBaseFqn = "\\App\\Message\\Envelope"
+        myFixture.openFileInEditor(myFixture.findFileInTempDir("handlers.php"))
+        DaemonCodeAnalyzer.getInstance(project).restart("navibus test: settings changed")
+        myFixture.doHighlighting()
+        assertTrue(
+            "handler param marker must survive the type filter",
+            hasMarkerAtLineOf("public function onFoo(Foo \$foo)"),
+        )
+    }
+
+    // Фильтр применяется и к упоминаниям (ClassReference), не только к определениям.
+    fun testMessageFilterAppliesToUsages() {
+        val settings = NaviBusSettings.getInstance(project)
+
+        // Bar — подтип Envelope: маркер на упоминании остаётся. Bar имеет явный
+        // конструктор — регресс: для `new Bar()` нельзя проверять тип через
+        // ClassReference.resolve() (вернёт __construct), только по FQN.
+        settings.messageBaseFqn = "\\App\\Message\\Envelope"
+        myFixture.configureByFile("usage_single.php")
+        assertEquals(1, myFixture.findGuttersAtCaret().size)
+
+        // Несуществующий базовый тип: ни один класс не подтип — маркера нет.
+        settings.messageBaseFqn = "\\App\\Message\\Nonexistent"
+        DaemonCodeAnalyzer.getInstance(project).restart("navibus test: settings changed")
+        myFixture.doHighlighting()
+        assertTrue(myFixture.findGuttersAtCaret().isEmpty())
     }
 
     // Требование: атрибута может не быть в проекте — плагин не должен падать.

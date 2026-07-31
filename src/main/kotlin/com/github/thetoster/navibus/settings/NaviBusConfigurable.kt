@@ -33,5 +33,15 @@ class NaviBusConfigurable(private val project: Project) : BoundConfigurable("Nav
                 "e.g. \\App\\Infrastructure\\MessageBus\\Autowire\\Handler. " +
                 "The attribute does not have to exist in the project."
         )
+        row("Message base type FQN:") {
+            textField()
+                .columns(COLUMNS_LARGE)
+                .bindText(settings::messageBaseFqn)
+        }.rowComment(
+            "Optional. If set, gutter markers are shown only for classes that " +
+                "implement or extend this interface/class (transitively), " +
+                "e.g. \\App\\Message\\MessageInterface. Leave empty to mark any " +
+                "class that has handlers."
+        )
     }
 }

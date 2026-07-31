@@ -1,7 +1,7 @@
 <?php
 namespace App\Message;
 
-final class CreateUser
+final class CreateUser implements MessageInterface
 {
     public function __construct(public string $name) {}
 }

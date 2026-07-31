@@ -19,6 +19,15 @@ message bus.
 в проекте — плагин не падает; обработчиков от 0 до N; в одной строке может быть
 несколько классов (у каждого свой маркер).
 
+**Фильтр классов-сообщений по типу** (project-level, опционально): можно задать FQN
+базового интерфейса/класса — тогда маркер ставится только у классов, которые его
+`implements`/`extends`. Строгая семантика: транзитивно обходятся **только
+родительские классы и интерфейсы**; трейты (`use`) и `@mixin` не считаются (это не
+extends/implements). Пусто — фильтр выключен (маркер у любого класса с обработчиками).
+Обработчики по-прежнему ищутся по атрибуту; фильтр — дополнительное условие на сам
+класс-сообщение. Если базового типа нет в проекте — ни один класс не пройдёт
+(аналогично «атрибута может не быть»).
+
 ## Стек и версии
 
 - Язык: **Kotlin 2.4.10** (под платформенный Kotlin 2.4.0).
@@ -45,6 +54,9 @@ message bus.
   `codeInsight.lineMarkerProvider` для языка PHP. Работает на leaf-элементе:
   распознаёт последний идентификатор `ClassReference` и имя `PhpClass`, берёт FQN,
   спрашивает обработчиков, строит маркер через `NavigationGutterIconBuilder`.
+  Если включён фильтр по типу (`isMessageFilterActive()`) — **после** того, как
+  обработчики найдены, проверяет `isMessageClass(fqn)` по уже известному FQN
+  (только под этим условием, чтобы не дёргать индекс на каждый leaf).
 - `HandlerMethodSearch` (project `@Service`) — поиск обработчиков. Строит карту
   «тип параметра → методы» и кэширует её через `CachedValuesManager`
   (инвалидация по `PsiModificationTracker.MODIFICATION_COUNT` и по изменению
@@ -52,12 +64,22 @@ message bus.
   PHP-плагина (использования атрибута по FQN) — без полного обхода классов
   проекта. Тип параметра резолвится через `PhpType.global(project)` (иначе
   импортированное короткое имя не совпадёт с FQN из `ClassReference`).
+  `isMessageClass(fqn: String)` — фильтр по типу. Класс резолвится по FQN через
+  `PhpIndex.getAnyByFQN` (**не** `ClassReference.resolve()`: у `new Foo()` резолв
+  ссылки вернёт `__construct`, а не класс — из-за этого маркеры пропадали на
+  упоминаниях классов с конструктором). Затем `PhpClassHierarchyUtils.processSuperClasses`
+  + `processSuperInterfaces` (транзитивно) сравнивают FQN супертипов с базовым (по
+  нормализованной строке, без резолва базового типа). Строго extends/implements —
+  **без** трейтов и `@mixin` (два узких вызова, а не общий `processSupers`, который
+  тянет трейты/миксины). Сам базовый FQN тоже проходит (аналог processSelf). Не
+  кэшируется — читает настройку «вживую», вызывается после отсечения по обработчикам.
 - `settings/NaviBusSettings` — project-level `PersistentStateComponent`
   (хранит FQN атрибута; дефолт `\App\Infrastructure\MessageBus\Autowire\Handler`;
+  и `messageBaseFqn` — FQN базового типа сообщений, дефолт пусто = фильтр выкл.;
   нормализует FQN). Является `SimpleModificationTracker` для инвалидации кэша.
 - `settings/NaviBusConfigurable` — страница **Settings | Tools | Navibus**
-  (Kotlin UI DSL). В `apply()` перезапускает анализатор, чтобы иконки
-  пересчитались при смене FQN.
+  (Kotlin UI DSL): поля «Handler attribute FQN» и «Message base type FQN».
+  В `apply()` перезапускает анализатор, чтобы иконки пересчитались при смене FQN.
 
 ## Ключевые API PHP-плагина
 
@@ -69,6 +91,11 @@ message bus.
   атрибута, не использования — не то.)
 - `Method.getAttributes(fqn)`, `Method.parameters`,
   `Parameter.declaredType` (`PhpType`), `PhpType.global(project)`.
+- `PhpClassHierarchyUtils.processSuperClasses` / `processSuperInterfaces`
+  `(clazz, processSelf, allowAmbiguity, Processor)` — транзитивный обход
+  родительских классов / интерфейсов; используются фильтром классов-сообщений
+  (строго extends/implements). `processSupers` — тот же обход, но с трейтами и
+  `@mixin`; нам не нужен. `PhpClass.fqn` даёт FQN с ведущим `\`.
 
 ## Gradle-задачи
 
@@ -87,11 +114,23 @@ message bus.
 - База: `BasePlatformTestCase`; фикстуры `.php` в `src/test/testData/navigation/`.
 - `HandlerLineMarkerTest` покрывает: резолв импортированного короткого имени
   (дискриминатор), 0/1/N обработчиков, несколько классов в строке, иконку на
-  определении класса, отсутствие атрибута (без падений), регистронезависимость.
-- `NaviBusSettingsTest` — дефолт, персист+trim, построение панели.
+  определении класса, отсутствие атрибута (без падений), регистронезависимость,
+  **фильтр по типу**: пара выкл→вкл (подтип сохраняет маркер, не-подтип с
+  обработчиком его теряет), транзитивность (`Foo`→`Command`→`Envelope`), фильтр
+  на упоминаниях. Смена настройки не меняет PSI — в тестах фильтра нужен
+  `DaemonCodeAnalyzer.restart(reason)` перед `doHighlighting()`; `messageBaseFqn`
+  сбрасывается в `setUp` (light-проект переиспользуется). Отдельный тест на строгость:
+  `Trec use Marker` (трейт) не проходит фильтр по `Marker`. Фикстура `messages.php`
+  содержит `Envelope`/`Command`/`Foo`/`Bar`/`Loose`/`Marker`/`Trec` (Loose — негативный
+  контроль по подтипу; Trec+Marker — контроль исключения трейтов).
+- `NaviBusSettingsTest` — дефолт (в т.ч. пустой `messageBaseFqn`), персист+trim
+  обоих FQN, построение панели.
 
 ## Демо
 
 `sample-project/` — маленький PHP-проект с дефолтным атрибутом для ручной
 проверки в `runIde` (открыть как проект, смотреть иконки в `UserController`/на
-определениях классов-сообщений).
+определениях классов-сообщений). Для фильтра по типу: `CreateUser implements
+MessageInterface`, `DeleteUser` — нет; задайте в Settings | Tools | Navibus поле
+«Message base type FQN» = `\App\Message\MessageInterface` — маркер останется
+только у `CreateUser`.

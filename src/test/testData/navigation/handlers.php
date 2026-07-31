@@ -5,6 +5,8 @@ namespace App\Handler;
 use App\Attribute\Handler;
 use App\Message\Bar;
 use App\Message\Foo;
+use App\Message\Loose;
+use App\Message\Trec;
 
 class MyHandlers
 {
@@ -19,6 +21,15 @@ class MyHandlers
 
     #[Handler]
     public function onBar(Bar $bar): void {}
+
+    // Обработчик есть, но Loose не подтип Envelope — проверка фильтра по типу.
+    #[Handler]
+    public function onLoose(Loose $loose): void {}
+
+    // Обработчик есть; Trec использует трейт Marker — проверка строгости фильтра
+    // (трейт не считается implements/extends).
+    #[Handler]
+    public function onTrec(Trec $trec): void {}
 
     // Без атрибута -> должен игнорироваться.
     public function notAHandler(Foo $foo): void {}

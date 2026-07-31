@@ -8,6 +8,7 @@ class NaviBusSettingsTest : BasePlatformTestCase() {
         try {
             // light-фикстура переиспользует проект между тестами — сбрасываем состояние
             NaviBusSettings.getInstance(project).attributeFqn = DEFAULT_HANDLER_ATTRIBUTE_FQN
+            NaviBusSettings.getInstance(project).messageBaseFqn = ""
         } finally {
             super.tearDown()
         }
@@ -15,6 +16,16 @@ class NaviBusSettingsTest : BasePlatformTestCase() {
 
     fun testDefaultValue() {
         assertEquals(DEFAULT_HANDLER_ATTRIBUTE_FQN, NaviBusSettings.getInstance(project).attributeFqn)
+        // Фильтр по типу класса-сообщения по умолчанию выключен (пусто).
+        assertEquals("", NaviBusSettings.getInstance(project).messageBaseFqn)
+    }
+
+    fun testMessageBaseFqnPersistsAndTrims() {
+        val settings = NaviBusSettings.getInstance(project)
+        settings.messageBaseFqn = "  \\App\\Message\\Envelope  "
+
+        assertEquals("\\App\\Message\\Envelope", settings.messageBaseFqn)
+        assertEquals("\\App\\Message\\Envelope", settings.state.messageBaseFqn)
     }
 
     fun testPersistsAndTrims() {

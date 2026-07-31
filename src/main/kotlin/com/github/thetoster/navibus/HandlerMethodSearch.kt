@@ -9,8 +9,12 @@ import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
 import com.intellij.psi.util.PsiModificationTracker
+import com.intellij.util.Processor
+import com.jetbrains.php.PhpClassHierarchyUtils
+import com.jetbrains.php.PhpIndex
 import com.jetbrains.php.lang.psi.elements.Method
 import com.jetbrains.php.lang.psi.elements.PhpAttribute
+import com.jetbrains.php.lang.psi.elements.PhpClass
 import com.jetbrains.php.lang.psi.stubs.indexes.PhpAttributeIndex
 
 /**
@@ -32,6 +36,51 @@ class HandlerMethodSearch(private val project: Project) {
     fun findHandlers(classFqn: String): List<Method> {
         val key = normalizeFqn(classFqn) ?: return emptyList()
         return handlersByParamType()[key].orEmpty()
+    }
+
+    /**
+     * Активен ли фильтр «класс-сообщение по implements/extends» — задан ли базовый FQN
+     * в настройках. Если нет — фильтровать классы по типу не нужно (текущее поведение).
+     */
+    fun isMessageFilterActive(): Boolean =
+        normalizeFqn(NaviBusSettings.getInstance(project).messageBaseFqn) != null
+
+    /**
+     * Проходит ли класс с данным FQN фильтр по типу: является ли он подтипом
+     * настроенного базового FQN. Строгая семантика `implements`/`extends` —
+     * транзитивно обходятся только **родительские классы и интерфейсы**; трейты и
+     * `@mixin` не учитываются (на уровне языка PHP это не extends/implements). Фильтр
+     * выключен (пустой FQN) → всегда `true`.
+     *
+     * Класс резолвится по FQN через [PhpIndex.getAnyByFQN], а НЕ через
+     * `ClassReference.resolve()`: у `new Foo()` резолв ссылки может вернуть
+     * `__construct` (Method), а не класс. Если класса с таким FQN нет — не проходит
+     * (нельзя проверить иерархию; аналогично тому, как атрибута может не быть).
+     */
+    fun isMessageClass(classFqn: String): Boolean {
+        val baseFqn = normalizeFqn(NaviBusSettings.getInstance(project).messageBaseFqn)
+            ?: return true
+        val targetFqn = normalizeFqn(classFqn) ?: return false
+        // Сам базовый тип тоже считаем сообщением (аналог processSelf = true).
+        if (targetFqn == baseFqn) return true
+
+        var matched = false
+        val processor = Processor<PhpClass> { sup ->
+            if (normalizeFqn(sup.fqn) == baseFqn) {
+                matched = true
+                false // нашли — прекращаем обход
+            } else {
+                true
+            }
+        }
+        for (phpClass in PhpIndex.getInstance(project).getAnyByFQN(classFqn)) {
+            PhpClassHierarchyUtils.processSuperClasses(phpClass, false, true, processor)
+            if (!matched) {
+                PhpClassHierarchyUtils.processSuperInterfaces(phpClass, false, true, processor)
+            }
+            if (matched) break
+        }
+        return matched
     }
 
     private fun handlersByParamType(): Map<String, List<Method>> {
