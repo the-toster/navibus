@@ -1,11 +1,13 @@
 # Navibus <img align="top" src="src/main/resources/META-INF/pluginIcon.svg" alt="logo" width="30">
-
-Phpstorm plugin fom message bus pattern.
-Navigation from message class to handler method.
-
 ![Build](https://github.com/the-toster/navibus/workflows/Build/badge.svg)
 [![Version](https://img.shields.io/jetbrains/plugin/v/33261-navibus.svg)](https://plugins.jetbrains.com/plugin/33261-navibus)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/33261-navibus.svg)](https://plugins.jetbrains.com/plugin/33261-navibus)
+
+
+Phpstorm plugin for message bus pattern. Navigation from message class to handler method.
+
+<img src="docs/navibus2.png" alt="Gutter navigation" width="600">
+
 
 ## Installation
 

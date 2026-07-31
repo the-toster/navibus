@@ -6,9 +6,6 @@
 
 ### Added
 - Bus icon
-
-## [0.0.3]
-### Added
 - Message class type filter: a new **Message base type FQN** field on the
   **Settings | Tools | Navibus** page. When an interface/class FQN is set, the gutter
   icon is shown only for classes that `implement`/`extend` it (transitively, strictly —
