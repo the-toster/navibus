@@ -13,6 +13,4 @@ final class UserHandler
     #[Handler]
     public function onDelete(DeleteUser $message): void {}
 
-    // без атрибута — не обработчик
-    public function helper(CreateUser $message): void {}
 }

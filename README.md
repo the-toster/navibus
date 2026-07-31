@@ -1,4 +1,5 @@
-# Navibus
+# Navibus <img align="top" src="src/main/resources/META-INF/pluginIcon.svg" alt="logo" width="30">
+
 Phpstorm plugin fom message bus pattern.
 Navigation from message class to handler method.
 

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
+  <defs>
+    <linearGradient id="gbus" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f0b24b"></stop>
+      <stop offset="1" stop-color="#c47e18"></stop>
+    </linearGradient>
+  </defs>
+  <rect x="18" y="18" width="264" height="264" rx="62" fill="url(#gbus)"></rect>
+  <rect x="56" y="58" width="188" height="108" rx="26" fill="#fff7ec"></rect>
+  <circle cx="86" cy="214" r="26" fill="#fff7ec"></circle>
+  <circle cx="214" cy="214" r="26" fill="#fff7ec"></circle>
+</svg>

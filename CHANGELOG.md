@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Added
+- Bus icon
+
 ## [0.0.3]
 ### Added
 - Message class type filter: a new **Message base type FQN** field on the
