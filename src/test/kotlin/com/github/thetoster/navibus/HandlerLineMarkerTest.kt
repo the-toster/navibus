@@ -18,6 +18,7 @@ class HandlerLineMarkerTest : BasePlatformTestCase() {
         // переиспользуется между тестами (иначе значение фильтра протекает).
         NaviBusSettings.getInstance(project).messageBaseFqn = ""
         NaviBusSettings.getInstance(project).messageAttributeFqns = emptyList()
+        NaviBusSettings.getInstance(project).ignoreHandlerAttribute = false
         myFixture.configureByFiles("messages.php", "attribute.php", "handlers.php")
     }
 
@@ -82,6 +83,16 @@ class HandlerLineMarkerTest : BasePlatformTestCase() {
         // Заголовок группы в popup "Related Symbol" — не дефолтный 'XML'.
         assertFalse(groups.isEmpty())
         assertTrue("groups=$groups", groups.all { it == "Handlers" })
+    }
+
+    // Маркер должен использовать кастомную иконку плагина, а не платформенную.
+    fun testMarkerUsesCustomIcon() {
+        myFixture.configureByFile("usage_single.php")
+        myFixture.doHighlighting()
+        val marker = DaemonCodeAnalyzerImpl
+            .getLineMarkers(myFixture.editor.document, project)
+            .first { it.lineMarkerTooltip?.startsWith("Go to") == true }
+        assertSame(NavibusIcons.Handler, marker.icon)
     }
 
     fun testNoGutterWhenNoHandler() {
@@ -226,6 +237,75 @@ class HandlerLineMarkerTest : BasePlatformTestCase() {
         assertTrue("Bar is a subtype", hasMarkerAtLineOf("class Bar"))
         assertTrue("Loose is annotated", hasMarkerAtLineOf("class Loose"))
         assertFalse("Trec matches neither rule", hasMarkerAtLineOf("class Trec"))
+    }
+
+    // Режим «игнорировать атрибут»: цели — все public-методы, принимающие Foo, без
+    // учёта атрибута. Дискриминатор: атрибутный поиск даёт 2 (onFoo/onFooAgain), а
+    // findMethodsAccepting — 3 (плюс notAHandler, короткое имя из use резолвится через
+    // ReferencesSearch). private onFooPrivate исключён -> проверка public-only.
+    fun testIgnoreAttributeFindsAllPublicAcceptingMethods() {
+        assertEquals("attribute mode: 2 marked handlers", 2, search().findHandlers("\\App\\Message\\Foo").size)
+        val names = search().findMethodsAccepting("\\App\\Message\\Foo").map { it.name }.toSet()
+        assertEquals(
+            "ignore mode: all public methods accepting Foo, private excluded",
+            setOf("onFoo", "onFooAgain", "notAHandler"),
+            names,
+        )
+    }
+
+    // Режим «игнорировать атрибут» гейтится фильтром сообщения. Фильтр = Envelope:
+    // Foo/Bar (подтипы) получают маркер на все принимающие public-методы; Loose имеет
+    // потребителя onLoose(Loose), но не подтип Envelope (правило по атрибуту не задано)
+    // -> маркера нет. Заодно прогоняет ReferencesSearch в marker-проходе (не должно
+    // упасть на SlowOperations).
+    fun testIgnoreAttributeGatedByMessageFilter() {
+        val settings = NaviBusSettings.getInstance(project)
+        settings.ignoreHandlerAttribute = true
+        settings.messageBaseFqn = "\\App\\Message\\Envelope"
+        myFixture.openFileInEditor(myFixture.findFileInTempDir("messages.php"))
+        DaemonCodeAnalyzer.getInstance(project).restart("navibus test: settings changed")
+        myFixture.doHighlighting()
+
+        assertTrue("Foo is a subtype -> marked to its consumers", hasMarkerAtLineOf("class Foo"))
+        assertFalse("Loose has a consumer but is not a message", hasMarkerAtLineOf("class Loose"))
+    }
+
+    // Режим «игнорировать атрибут» без активного фильтра сообщений не ставит маркеров:
+    // без фильтра «сообщением» был бы любой класс — режим выключен.
+    fun testIgnoreAttributeInactiveWithoutFilter() {
+        NaviBusSettings.getInstance(project).ignoreHandlerAttribute = true
+        myFixture.openFileInEditor(myFixture.findFileInTempDir("messages.php"))
+        DaemonCodeAnalyzer.getInstance(project).restart("navibus test: settings changed")
+        myFixture.doHighlighting()
+        assertEquals(0, goToMarkerCount())
+    }
+
+    // Число наших маркеров на строке, где впервые встречается [marker].
+    private fun goToMarkerCountAtLineOf(marker: String): Int {
+        val doc = myFixture.editor.document
+        val line = doc.getLineNumber(doc.text.indexOf(marker))
+        return DaemonCodeAnalyzerImpl.getLineMarkers(doc, project)
+            .filter { it.lineMarkerTooltip?.startsWith("Go to") == true }
+            .count { doc.getLineNumber(it.element!!.textRange.startOffset) == line }
+    }
+
+    // Регресс: ссылка на класс в extends/implements не должна получать маркер. На
+    // строке `class Bar implements Envelope` (Envelope — базовый тип, у него есть
+    // принимающий метод onEnvelope) в ignore-режиме должен быть ровно ОДИН маркер — на
+    // самом Bar (ведёт к принимающим Bar методам), а не второй на ссылке `Envelope`.
+    fun testIgnoreModeSkipsInheritanceClauseReference() {
+        val settings = NaviBusSettings.getInstance(project)
+        settings.ignoreHandlerAttribute = true
+        settings.messageBaseFqn = "\\App\\Message\\Envelope"
+        myFixture.openFileInEditor(myFixture.findFileInTempDir("messages.php"))
+        DaemonCodeAnalyzer.getInstance(project).restart("navibus test: settings changed")
+        myFixture.doHighlighting()
+
+        assertEquals(
+            "exactly one marker on the class name, none on the `implements` reference",
+            1,
+            goToMarkerCountAtLineOf("class Bar implements Envelope"),
+        )
     }
 
     // Требование: атрибута может не быть в проекте — плагин не должен падать.

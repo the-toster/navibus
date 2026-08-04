@@ -5,17 +5,22 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.psi.stubs.StubIndex
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
 import com.intellij.psi.util.PsiModificationTracker
+import com.intellij.psi.util.parentOfType
 import com.intellij.util.Processor
 import com.jetbrains.php.PhpClassHierarchyUtils
 import com.jetbrains.php.PhpIndex
 import com.jetbrains.php.lang.psi.elements.Method
+import com.jetbrains.php.lang.psi.elements.Parameter
 import com.jetbrains.php.lang.psi.elements.PhpAttribute
 import com.jetbrains.php.lang.psi.elements.PhpClass
+import com.jetbrains.php.lang.psi.elements.PhpModifier
 import com.jetbrains.php.lang.psi.stubs.indexes.PhpAttributeIndex
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Ищет методы-обработчики: помечены настроенным атрибутом и принимают параметр
@@ -36,6 +41,56 @@ class HandlerMethodSearch(private val project: Project) {
     fun findHandlers(classFqn: String): List<Method> {
         val key = normalizeFqn(classFqn) ?: return emptyList()
         return handlersByParamType()[key].orEmpty()
+    }
+
+    /** Включён ли режим «игнорировать атрибут обработчика». */
+    fun isIgnoreHandlerAttribute(): Boolean =
+        NaviBusSettings.getInstance(project).ignoreHandlerAttribute
+
+    /**
+     * **Все public-методы**, принимающие класс с данным FQN параметром — без учёта
+     * атрибута обработчика (режим [isIgnoreHandlerAttribute]). Кандидаты берутся
+     * поиском ссылок на сам класс ([ReferencesSearch]); ссылка засчитывается, только
+     * если она внутри параметра, чей `declaredType.global` совпадает с FQN — та же
+     * проверка типа, что и в атрибутном режиме (единая семантика union/nullable/
+     * импортированных имён). Результат кэшируется по FQN на цикл PSI (см.
+     * [acceptingMethodsCache]); дорогой поиск не гоняется на каждый leaf/файл повторно.
+     */
+    fun findMethodsAccepting(classFqn: String): List<Method> {
+        val key = normalizeFqn(classFqn) ?: return emptyList()
+        return acceptingMethodsCache().getOrPut(key) { computeMethodsAccepting(classFqn, key) }
+    }
+
+    private fun computeMethodsAccepting(classFqn: String, key: String): List<Method> {
+        val result = LinkedHashSet<Method>()
+        val scope = GlobalSearchScope.allScope(project)
+        for (phpClass in PhpIndex.getInstance(project).getAnyByFQN(classFqn)) {
+            ReferencesSearch.search(phpClass, scope).forEach { ref ->
+                val parameter = ref.element.parentOfType<Parameter>() ?: return@forEach
+                val method = parameter.parentOfType<Method>() ?: return@forEach
+                if (method.access != PhpModifier.Access.PUBLIC) return@forEach
+                // Отсекаем ссылки, не являющиеся типом параметра (напр. значение
+                // по умолчанию), сверяя FQN типа так же, как атрибутный режим.
+                if (parameter.declaredType.global(project).types.any { normalizeFqn(it) == key }) {
+                    result.add(method)
+                }
+            }
+        }
+        return result.toList()
+    }
+
+    /**
+     * Кэш «FQN сообщения → принимающие public-методы» на цикл PSI. Ленивое заполнение
+     * (см. [findMethodsAccepting]); инвалидация по PSI и по изменению настроек.
+     */
+    private fun acceptingMethodsCache(): ConcurrentHashMap<String, List<Method>> {
+        return CachedValuesManager.getManager(project).getCachedValue(project) {
+            CachedValueProvider.Result.create(
+                ConcurrentHashMap<String, List<Method>>(),
+                PsiModificationTracker.MODIFICATION_COUNT,
+                NaviBusSettings.getInstance(project),
+            )
+        }
     }
 
     /**

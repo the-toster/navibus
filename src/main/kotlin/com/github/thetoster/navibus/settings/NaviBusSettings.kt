@@ -25,6 +25,7 @@ class NaviBusSettings : SimpleModificationTracker(), PersistentStateComponent<Na
         var messageBaseFqn: String = "",
         @get:XCollection(style = XCollection.Style.v2)
         var messageAttributeFqns: MutableList<String> = mutableListOf(),
+        var ignoreHandlerAttribute: Boolean = false,
     )
 
     private var myState = State()
@@ -75,6 +76,21 @@ class NaviBusSettings : SimpleModificationTracker(), PersistentStateComponent<Na
             val normalized = value.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
             if (normalized != myState.messageAttributeFqns) {
                 myState.messageAttributeFqns = normalized.toMutableList()
+                incModificationCount()
+            }
+        }
+
+    /**
+     * Игнорировать атрибут обработчика: если включено, целями навигации становятся
+     * **все public-методы**, принимающие класс-сообщение параметром (для проектов, где
+     * обработчики не размечены атрибутом). Требует активного фильтра сообщений — иначе
+     * «сообщением» был бы любой класс, и режим выключен. Дефолт `false` (атрибутный режим).
+     */
+    var ignoreHandlerAttribute: Boolean
+        get() = myState.ignoreHandlerAttribute
+        set(value) {
+            if (value != myState.ignoreHandlerAttribute) {
+                myState.ignoreHandlerAttribute = value
                 incModificationCount()
             }
         }

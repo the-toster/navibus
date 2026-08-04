@@ -4,14 +4,33 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Validation on the **Settings | Tools | Navibus** page: leaving **Handler attribute FQN**
+  empty while **Match handlers by parameter type** is off is now flagged as an error and
+  blocks Apply — that combination finds no handlers, so no navigation would be shown.
+- Class references inside `extends`/`implements` clauses no longer get a gutter marker.
+  Previously a line like `class Foo implements Message` could show a second marker on
+  the `Message` reference, merging into the class icon and adding a confusing extra
+  target — most visible in **Ignore handler attribute** mode, where the base type
+  almost always has a method accepting it.
+
 ### Added
 
 - Message class filter by attribute: a new **Message attribute FQNs** field (one FQN
   per line) on the **Settings | Tools | Navibus** page. A class is treated as a message
   if it is annotated with any of these attributes on the class declaration itself.
+- **Match handlers by parameter type** mode: a new checkbox on the
+  **Settings | Tools | Navibus** page (placed under **Handler attribute FQN**) for
+  projects where handlers are not annotated. When enabled, a handler is any **public
+  method** that accepts the message as a parameter, ignoring the handler attribute.
+  Enabling it disables the **Handler attribute FQN** field; if no message filter is set, a
+  warning is shown, since the mode produces no markers without a filter.
 
 ### Changed
 
+- Custom gutter icon: the handler navigation marker now uses the plugin's own icon
+  instead of the platform's "implemented method" icon.
 - The message class filter is now a **set of rules combined with OR**: a class gets the
   gutter icon if it matches the **Message base type FQN** (subtype rule) **or** the new
   **Message attribute FQNs** (attribute rule). Both fields empty disables the filter and
