@@ -6,7 +6,7 @@
 
 Phpstorm plugin for message bus pattern. Navigation from message class to handler method.
 
-<img src="docs/navibus2.png" alt="Gutter navigation" width="600">
+<img src="docs/navibus3.png" alt="Gutter navigation" width="600">
 
 
 ## Installation
