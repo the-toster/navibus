@@ -2,6 +2,8 @@
 
 namespace App\Message;
 
+use App\Attribute\AsMessage;
+
 interface Envelope {}
 
 // Промежуточный интерфейс: Command -> Envelope. Нужен для проверки транзитивности
@@ -17,7 +19,10 @@ class Bar implements Envelope
     public function __construct(public string $id = "") {}
 }
 
-// Есть обработчик (onLoose), но НЕ подтип Envelope — негативный контроль фильтра.
+// Есть обработчик (onLoose), но НЕ подтип Envelope — негативный контроль фильтра по
+// типу. Помечен атрибутом AsMessage (короткое имя из use) — позитивный контроль
+// правила фильтра по атрибуту и проверка резолва короткого имени в FQN.
+#[AsMessage]
 class Loose {}
 
 // Трейт + класс, который его использует. Контроль строгости фильтра: `use` — это

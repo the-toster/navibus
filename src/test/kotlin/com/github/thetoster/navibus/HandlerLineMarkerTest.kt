@@ -14,9 +14,10 @@ class HandlerLineMarkerTest : BasePlatformTestCase() {
         super.setUp()
         // FQN атрибута из фикстур (короче реального дефолта).
         NaviBusSettings.getInstance(project).attributeFqn = "\\App\\Attribute\\Handler"
-        // Фильтр по типу выключен по умолчанию; сбрасываем, т.к. light-проект
+        // Фильтр выключен по умолчанию; сбрасываем оба правила, т.к. light-проект
         // переиспользуется между тестами (иначе значение фильтра протекает).
         NaviBusSettings.getInstance(project).messageBaseFqn = ""
+        NaviBusSettings.getInstance(project).messageAttributeFqns = emptyList()
         myFixture.configureByFiles("messages.php", "attribute.php", "handlers.php")
     }
 
@@ -193,6 +194,38 @@ class HandlerLineMarkerTest : BasePlatformTestCase() {
         DaemonCodeAnalyzer.getInstance(project).restart("navibus test: settings changed")
         myFixture.doHighlighting()
         assertTrue(myFixture.findGuttersAtCaret().isEmpty())
+    }
+
+    // Правило фильтра по атрибуту-маркеру класса (без базового типа). Loose помечен
+    // #[AsMessage] (короткое имя из use → резолв в FQN), остальные классы с
+    // обработчиками — нет. Базовый тип пуст → правило по типу ничего не пропускает,
+    // решает только атрибут: остаётся один маркер, у Loose.
+    fun testMessageFilterMatchesByAttribute() {
+        val settings = NaviBusSettings.getInstance(project)
+        myFixture.openFileInEditor(myFixture.findFileInTempDir("messages.php"))
+
+        settings.messageAttributeFqns = listOf("\\App\\Attribute\\AsMessage")
+        DaemonCodeAnalyzer.getInstance(project).restart("navibus test: settings changed")
+        myFixture.doHighlighting()
+        assertEquals("only attribute-marked Loose passes", 1, goToMarkerCount())
+        assertTrue("Loose is annotated #[AsMessage]", hasMarkerAtLineOf("class Loose"))
+        assertFalse("Foo has no marker attribute", hasMarkerAtLineOf("class Foo"))
+    }
+
+    // Семантика OR: активны оба правила. База = Envelope пропускает Foo/Bar (подтипы),
+    // атрибут AsMessage пропускает Loose. Trec — ни подтип, ни помечен → выпадает.
+    fun testMessageFilterCombinesBaseAndAttributeWithOr() {
+        val settings = NaviBusSettings.getInstance(project)
+        myFixture.openFileInEditor(myFixture.findFileInTempDir("messages.php"))
+
+        settings.messageBaseFqn = "\\App\\Message\\Envelope"
+        settings.messageAttributeFqns = listOf("\\App\\Attribute\\AsMessage")
+        DaemonCodeAnalyzer.getInstance(project).restart("navibus test: settings changed")
+        myFixture.doHighlighting()
+        assertEquals("Foo/Bar by subtype + Loose by attribute", 3, goToMarkerCount())
+        assertTrue("Bar is a subtype", hasMarkerAtLineOf("class Bar"))
+        assertTrue("Loose is annotated", hasMarkerAtLineOf("class Loose"))
+        assertFalse("Trec matches neither rule", hasMarkerAtLineOf("class Trec"))
     }
 
     // Требование: атрибута может не быть в проекте — плагин не должен падать.

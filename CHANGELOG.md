@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+### Added
+
+- Message class filter by attribute: a new **Message attribute FQNs** field (one FQN
+  per line) on the **Settings | Tools | Navibus** page. A class is treated as a message
+  if it is annotated with any of these attributes on the class declaration itself.
+
+### Changed
+
+- The message class filter is now a **set of rules combined with OR**: a class gets the
+  gutter icon if it matches the **Message base type FQN** (subtype rule) **or** the new
+  **Message attribute FQNs** (attribute rule). Both fields empty disables the filter and
+  keeps the previous behavior.
+
 ## [0.0.3] - 2026-07-31
 
 ### Added

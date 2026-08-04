@@ -7,6 +7,7 @@ import com.intellij.openapi.components.Storage
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.SimpleModificationTracker
+import com.intellij.util.xmlb.annotations.XCollection
 
 /** FQN целевого атрибута по умолчанию. Настраивается в Settings. */
 const val DEFAULT_HANDLER_ATTRIBUTE_FQN = "\\App\\Infrastructure\\MessageBus\\Autowire\\Handler"
@@ -22,6 +23,8 @@ class NaviBusSettings : SimpleModificationTracker(), PersistentStateComponent<Na
     data class State(
         var attributeFqn: String = DEFAULT_HANDLER_ATTRIBUTE_FQN,
         var messageBaseFqn: String = "",
+        @get:XCollection(style = XCollection.Style.v2)
+        var messageAttributeFqns: MutableList<String> = mutableListOf(),
     )
 
     private var myState = State()
@@ -55,6 +58,23 @@ class NaviBusSettings : SimpleModificationTracker(), PersistentStateComponent<Na
             val normalized = value.trim()
             if (normalized != myState.messageBaseFqn) {
                 myState.messageBaseFqn = normalized
+                incModificationCount()
+            }
+        }
+
+    /**
+     * FQN атрибутов, которыми помечен **сам класс-сообщение** (не обработчик), чтобы
+     * получить маркер. Дополнительное правило фильтра поверх [messageBaseFqn]: класс —
+     * сообщение, если он подтип базового FQN **или** помечен любым из этих атрибутов
+     * (семантика OR). Список нормализуется: trim, отбрасываются пустые строки и дубли.
+     * Пустой список — правило по атрибутам выключено.
+     */
+    var messageAttributeFqns: List<String>
+        get() = myState.messageAttributeFqns
+        set(value) {
+            val normalized = value.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+            if (normalized != myState.messageAttributeFqns) {
+                myState.messageAttributeFqns = normalized.toMutableList()
                 incModificationCount()
             }
         }

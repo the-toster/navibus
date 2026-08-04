@@ -39,30 +39,43 @@ class HandlerMethodSearch(private val project: Project) {
     }
 
     /**
-     * Активен ли фильтр «класс-сообщение по implements/extends» — задан ли базовый FQN
-     * в настройках. Если нет — фильтровать классы по типу не нужно (текущее поведение).
+     * Активен ли фильтр класса-сообщения — задано ли хоть одно правило: базовый FQN
+     * (`implements`/`extends`) **или** непустой список атрибутов-маркеров класса. Если
+     * ни одно правило не задано — фильтровать классы не нужно (текущее поведение).
      */
-    fun isMessageFilterActive(): Boolean =
-        normalizeFqn(NaviBusSettings.getInstance(project).messageBaseFqn) != null
+    fun isMessageFilterActive(): Boolean {
+        val settings = NaviBusSettings.getInstance(project)
+        return normalizeFqn(settings.messageBaseFqn) != null ||
+            messageAttributeKeys(settings).isNotEmpty()
+    }
 
     /**
-     * Проходит ли класс с данным FQN фильтр по типу: является ли он подтипом
-     * настроенного базового FQN. Строгая семантика `implements`/`extends` —
-     * транзитивно обходятся только **родительские классы и интерфейсы**; трейты и
-     * `@mixin` не учитываются (на уровне языка PHP это не extends/implements). Фильтр
-     * выключен (пустой FQN) → всегда `true`.
+     * Проходит ли класс с данным FQN фильтр класса-сообщения. Семантика OR: класс —
+     * сообщение, если выполнено **любое** правило:
+     *  - подтип настроенного базового FQN (`implements`/`extends`, транзитивно —
+     *    обходятся только **родительские классы и интерфейсы**; трейты и `@mixin` не
+     *    учитываются, на уровне PHP это не extends/implements);
+     *  - помечен любым из настроенных атрибутов **на самом классе** (атрибуты в PHP не
+     *    наследуются — иерархию для этого правила не обходим).
+     *
+     * Если ни одно правило не задано → всегда `true` (фильтр выключен).
      *
      * Класс резолвится по FQN через [PhpIndex.getAnyByFQN], а НЕ через
      * `ClassReference.resolve()`: у `new Foo()` резолв ссылки может вернуть
      * `__construct` (Method), а не класс. Если класса с таким FQN нет — не проходит
-     * (нельзя проверить иерархию; аналогично тому, как атрибута может не быть).
+     * (нельзя проверить ни иерархию, ни атрибуты; аналогично тому, как атрибута может
+     * не быть).
      */
     fun isMessageClass(classFqn: String): Boolean {
-        val baseFqn = normalizeFqn(NaviBusSettings.getInstance(project).messageBaseFqn)
-            ?: return true
+        val settings = NaviBusSettings.getInstance(project)
+        val baseFqn = normalizeFqn(settings.messageBaseFqn)
+        val attrKeys = messageAttributeKeys(settings)
+        // Ни одного правила — фильтр выключен.
+        if (baseFqn == null && attrKeys.isEmpty()) return true
+
         val targetFqn = normalizeFqn(classFqn) ?: return false
         // Сам базовый тип тоже считаем сообщением (аналог processSelf = true).
-        if (targetFqn == baseFqn) return true
+        if (baseFqn != null && targetFqn == baseFqn) return true
 
         var matched = false
         val processor = Processor<PhpClass> { sup ->
@@ -74,14 +87,27 @@ class HandlerMethodSearch(private val project: Project) {
             }
         }
         for (phpClass in PhpIndex.getInstance(project).getAnyByFQN(classFqn)) {
-            PhpClassHierarchyUtils.processSuperClasses(phpClass, false, true, processor)
-            if (!matched) {
-                PhpClassHierarchyUtils.processSuperInterfaces(phpClass, false, true, processor)
+            // Правило по атрибуту: атрибут на самом классе, без обхода иерархии.
+            if (attrKeys.isNotEmpty() &&
+                phpClass.attributes.any { normalizeFqn(it.fqn) in attrKeys }
+            ) {
+                return true
             }
-            if (matched) break
+            // Правило по типу: транзитивный обход родителей/интерфейсов.
+            if (baseFqn != null) {
+                PhpClassHierarchyUtils.processSuperClasses(phpClass, false, true, processor)
+                if (!matched) {
+                    PhpClassHierarchyUtils.processSuperInterfaces(phpClass, false, true, processor)
+                }
+                if (matched) return true
+            }
         }
-        return matched
+        return false
     }
+
+    /** Нормализованные ключи атрибутов-маркеров класса (без пустых). */
+    private fun messageAttributeKeys(settings: NaviBusSettings): Set<String> =
+        settings.messageAttributeFqns.mapNotNull { normalizeFqn(it) }.toSet()
 
     private fun handlersByParamType(): Map<String, List<Method>> {
         return CachedValuesManager.getManager(project).getCachedValue(project) {
